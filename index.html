@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Generador de Tablas</title>
+  <style>
+    /* ----- Estilos Generales ----- */
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    h1, h2 {
+      margin-bottom: 10px;
+    }
+    /* ----- Zona de carga/arrastre ----- */
+    #fileInput {
+      margin-bottom: 10px;
+    }
+    .drop-zone {
+      width: 100%;
+      height: 100px;
+      border: 2px dashed #ccc;
+      border-radius: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 10px;
+      color: #999;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .drop-zone:hover {
+      background-color: #f9f9f9;
+    }
+    /* ----- Estilos para tablas ----- */
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 10px;
+      font-size: 12px;
+    }
+    th, td {
+      border: 1px solid #d9d9d9;
+      padding: 5px;
+      text-align: center;
+      vertical-align: middle;
+    }
+    thead th {
+      background-color: #4472C4;
+      color: #ffffff;
+      font-weight: bold;
+    }
+    .total-row {
+      background-color: #4472C4;
+      color: #ffffff;
+      font-weight: bold;
+      font-size: 14px;
+    }
+    .bold {
+      font-weight: bold;
+    }
+    .leader-number {
+      font-weight: 900;
+      font-size: 14px;
+    }
+    .name-cell {
+      text-align: left;
+      padding-left: 25px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Generador de Tablas</h1>
+  <!-- Input y zona de arrastre -->
+  <input type="file" id="fileInput" accept=".xlsx, .xls, .csv"/>
+  <div class="drop-zone" id="dropZone">Arrastra y suelta tu archivo aquí</div>
+  
+  <!-- Contenedores para las tres tablas -->
+  <h2>Tabla General</h2>
+  <div id="tableGeneral"></div>
+  
+  <h2>Tabla de Supervisores</h2>
+  <div id="tableSupervisores"></div>
+  
+  <h2>Gestión del Back</h2>
+  <div id="tableBack"></div>
+  
+  <!-- Librería SheetJS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  
+  <script>
+    /**********************
+     * FUNCIONES DE FORMATO
+     **********************/
+    function formatLeader(leader) {
+      return leader.toUpperCase();
+    }
+    function formatVendor(vendor) {
+      return vendor
+        .toLowerCase()
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+    }
+    
+    /***************************************
+     * CONFIGURACIÓN TABLA 1 Y 2 (GENERAL)
+     ***************************************/
+    // Estados válidos para la validación (usados en columna AE, índice 30)
+    const validStates = ["CONFORME", "P.GRABACIÓN", "AGENDADO", "NO CONTESTA", "VENTA OBSERVADA", "DESAPROBADO"];
+    // Puntuación para cada estado (0 = lo mejor, 1 = lo peor)
+    const stateScore = {
+      "CONFORME": 0,
+      "P.GRABACIÓN": 0.2,
+      "AGENDADO": 0.4,
+      "NO CONTESTA": 0.6,
+      "VENTA OBSERVADA": 0.8,
+      "DESAPROBADO": 1.0
+    };
+    
+    // Colores para el degradado (tabla 1 y 2, fila del líder)
+    const colorGreen = { r: 0x2f, g: 0x63, b: 0x25 }; // #2f6325
+    const colorYellow = { r: 0xd5, g: 0xdd, b: 0x00 }; // #d5dd00
+    const colorRed = { r: 0x7d, g: 0x04, b: 0x01 };    // #7d0401
+    
+    function rgbToHex(r, g, b) {
+      return "#" + [r, g, b].map(x => {
+        const hex = x.toString(16);
+        return hex.length === 1 ? "0" + hex : hex;
+      }).join('');
+    }
+    
+    // Función para obtener un color degradado basado en la puntuación (score en [0,1])
+    // Si score <= 0.5, se interpola entre verde y amarillo; si > 0.5, entre amarillo y rojo.
+    function getGradientColor(score) {
+      if (score <= 0.5) {
+        let fraction = score / 0.5;
+        let r = Math.round(colorGreen.r + fraction * (colorYellow.r - colorGreen.r));
+        let g = Math.round(colorGreen.g + fraction * (colorYellow.g - colorGreen.g));
+        let b = Math.round(colorGreen.b + fraction * (colorYellow.b - colorGreen.b));
+        return rgbToHex(r, g, b);
+      } else {
+        let fraction = (score - 0.5) / 0.5;
+        let r = Math.round(colorYellow.r + fraction * (colorRed.r - colorYellow.r));
+        let g = Math.round(colorYellow.g + fraction * (colorRed.g - colorYellow.g));
+        let b = Math.round(colorYellow.b + fraction * (colorRed.b - colorYellow.b));
+        return rgbToHex(r, g, b);
+      }
+    }
+    
+    /***************************************
+     * PROCESAMIENTO DE LOS DATOS (TABLAS 1 Y 2)
+     ***************************************/
+    function processGeneralData(data) {
+      let leaders = {};
+      let globalTotals = {};
+      validStates.forEach(state => { globalTotals[state] = 0; });
+      
+      // Se procesa cada fila usando:
+      // Columna A (índice 0): vendedor, B (índice 1): líder, AE (índice 30): estado
+      data.forEach(row => {
+        if (row.length < 31) return;
+        let vendor = row[0] ? row[0].toString().trim() : "";
+        let supervisor = row[1] ? row[1].toString().trim() : "";
+        let stateValue = row[30] ? row[30].toString().trim().toUpperCase() : "";
+        if (!vendor || !supervisor) return;
+        if (!validStates.includes(stateValue)) return;
+        
+        // Agrupar por supervisor
+        if (!leaders[supervisor]) {
+          leaders[supervisor] = { stateCounts: {}, vendors: {} };
+          validStates.forEach(state => { leaders[supervisor].stateCounts[state] = 0; });
+        }
+        leaders[supervisor].stateCounts[stateValue]++;
+        globalTotals[stateValue]++;
+        
+        // Agrupar vendedores por supervisor
+        if (!leaders[supervisor].vendors[vendor]) {
+          leaders[supervisor].vendors[vendor] = {};
+          validStates.forEach(state => { leaders[supervisor].vendors[vendor][state] = 0; });
+        }
+        leaders[supervisor].vendors[vendor][stateValue]++;
+      });
+      
+      // Determinar las columnas a mostrar (solo estados con algún valor global)
+      let columnsToShow = validStates.filter(state => globalTotals[state] > 0);
+      
+      // Función para calcular el total (suma de los estados mostrados)
+      function calcTotal(counts) {
+        return columnsToShow.reduce((acc, state) => acc + (counts[state] || 0), 0);
+      }
+      
+      // Calcular la "puntuación" ponderada para cada líder
+      // score = (∑ (stateScore * count)) / total
+      function computeLeaderScore(stateCounts, total) {
+        let sum = 0;
+        columnsToShow.forEach(state => {
+          sum += stateScore[state] * (stateCounts[state] || 0);
+        });
+        return total ? (sum / total) : 0;
+      }
+      
+      // Crear arreglo de líderes y ordenarlos por total (descendente)
+      let leaderArray = [];
+      for (let leader in leaders) {
+        let total = calcTotal(leaders[leader].stateCounts);
+        let score = computeLeaderScore(leaders[leader].stateCounts, total);
+        leaderArray.push({ name: leader, data: leaders[leader], total: total, score: score });
+      }
+      leaderArray.sort((a, b) => b.total - a.total);
+      
+      return { leaderArray, columnsToShow, globalTotals, calcTotal };
+    }
+    
+    /***************************************
+     * CONSTRUCCIÓN DE TABLA GENERAL (Tabla 1)
+     ***************************************/
+    function buildTablaGeneral(leaderArray, columnsToShow, calcTotal, globalTotals) {
+      let html = "<table>";
+      html += "<thead><tr>";
+      html += "<th>N°</th><th>LÍDER</th>";
+      columnsToShow.forEach(state => { html += `<th>${state}</th>`; });
+      html += "<th>TOTAL GENERAL</th>";
+      html += "</tr></thead><tbody>";
+      
+      leaderArray.forEach((leaderObj, index) => {
+        let leaderName = formatLeader(leaderObj.name);
+        let leaderTotal = leaderObj.total;
+        // Calcular color degradado para la fila del líder
+        let computedColor = getGradientColor(leaderObj.score);
+        html += `<tr class="bold" style="background-color:${computedColor};">`;
+        html += `<td class="leader-number">${index + 1}</td>`;
+        html += `<td>${leaderName}</td>`;
+        columnsToShow.forEach(state => {
+          let count = leaderObj.data.stateCounts[state] || 0;
+          html += `<td style="font-size:14px; font-weight:bold;">${count}</td>`;
+        });
+        html += `<td style="font-size:14px; font-weight:bold;">${leaderTotal}</td>`;
+        html += "</tr>";
+        
+        // Filas de vendedores (sin fondo de color)
+        for (let vendor in leaderObj.data.vendors) {
+          let vendorCounts = leaderObj.data.vendors[vendor];
+          let vendorTotal = calcTotal(vendorCounts);
+          html += "<tr>";
+          html += "<td></td>";
+          html += `<td class="name-cell">${formatVendor(vendor)}</td>`;
+          columnsToShow.forEach(state => {
+            let count = vendorCounts[state] || 0;
+            html += `<td>${count}</td>`;
+          });
+          html += `<td>${vendorTotal}</td>`;
+          html += "</tr>";
+        }
+      });
+      
+      html += `<tr class="total-row">`;
+      html += "<td></td><td>Total general</td>";
+      columnsToShow.forEach(state => {
+        html += `<td>${globalTotals[state]}</td>`;
+      });
+      let overallTotal = columnsToShow.reduce((acc, state) => acc + globalTotals[state], 0);
+      html += `<td>${overallTotal}</td>`;
+      html += "</tr>";
+      
+      html += "</tbody></table>";
+      return html;
+    }
+    
+    /*********************************************
+     * CONSTRUCCIÓN DE TABLA DE SUPERVISORES (Tabla 2)
+     * (Solo se muestran los líderes)
+     *********************************************/
+    function buildTablaSupervisores(leaderArray, columnsToShow, globalTotals) {
+      let html = "<table>";
+      html += "<thead><tr>";
+      html += "<th>N°</th><th>LÍDER</th>";
+      columnsToShow.forEach(state => { html += `<th>${state}</th>`; });
+      html += "<th>TOTAL GENERAL</th>";
+      html += "</tr></thead><tbody>";
+      
+      leaderArray.forEach((leaderObj, index) => {
+        let leaderName = formatLeader(leaderObj.name);
+        let leaderTotal = leaderObj.total;
+        // Usar el mismo degradado calculado
+        let computedColor = getGradientColor(leaderObj.score);
+        html += `<tr class="bold" style="background-color:${computedColor};">`;
+        html += `<td class="leader-number">${index + 1}</td>`;
+        html += `<td>${leaderName}</td>`;
+        columnsToShow.forEach(state => {
+          let count = leaderObj.data.stateCounts[state] || 0;
+          html += `<td style="font-size:14px; font-weight:bold;">${count}</td>`;
+        });
+        html += `<td style="font-size:14px; font-weight:bold;">${leaderTotal}</td>`;
+        html += "</tr>";
+      });
+      
+      html += `<tr class="total-row">`;
+      html += "<td></td><td>Total general</td>";
+      columnsToShow.forEach(state => {
+        html += `<td>${globalTotals[state]}</td>`;
+      });
+      let overallTotal = columnsToShow.reduce((acc, state) => acc + globalTotals[state], 0);
+      html += `<td>${overallTotal}</td>`;
+      html += "</tr>";
+      
+      html += "</tbody></table>";
+      return html;
+    }
+    
+    /*********************************************
+     * PROCESAMIENTO DE DATOS PARA "GESTIÓN DEL BACK" (Tabla 3)
+     *********************************************/
+    function processBackData(data) {
+      // Se utilizarán: AA (índice 26) = estado, AC (índice 28) = back
+      let backData = {}; // Estructura: { backName: { conforme: number, others: number } }
+      let globalBackTotal = 0;
+      
+      data.forEach(row => {
+        if (row.length < 29) return; // se requiere al menos hasta AC (índice 28)
+        let stateBack = row[26] ? row[26].toString().trim().toUpperCase() : "";
+        let backName = row[28] ? row[28].toString().trim() : "";
+        // Solo procesamos si existe un nombre de back
+        if (!backName) return;
+        
+        if (!backData[backName]) {
+          backData[backName] = { conforme: 0, others: 0 };
+        }
+        // Si el estado es "CONFORME", se suma al contador correspondiente; de lo contrario, a "others"
+        if (stateBack === "CONFORME") {
+          backData[backName].conforme++;
+          globalBackTotal++;
+        } else if(stateBack) {
+          backData[backName].others++;
+          globalBackTotal++;
+        }
+      });
+      
+      return { backData, globalBackTotal };
+    }
+    
+    function buildTablaBack(backData, globalBackTotal) {
+      let html = "<table>";
+      html += "<thead><tr>";
+      html += "<th>BACK</th><th>CUENTA DE ESTADO DE LA VALIDACIÓN</th>";
+      html += "</tr></thead><tbody>";
+      
+      // Para cada back, si tiene registros CONFORME se muestra la fila con el nombre en mayúsculas;
+      // si tiene otros estados, se agrega una fila adicional con la celda BACK mostrando "(En blanco)".
+      for (let back in backData) {
+        let conformeCount = backData[back].conforme;
+        let othersCount = backData[back].others;
+        if (conformeCount > 0) {
+          html += `<tr class="bold"><td>${back.toUpperCase()}</td><td>${conformeCount}</td></tr>`;
+        }
+        if (othersCount > 0) {
+          html += `<tr class="bold"><td>(En blanco)</td><td>${othersCount}</td></tr>`;
+        }
+      }
+      
+      // Fila de total general
+      html += `<tr class="total-row"><td>Total general</td><td>${globalBackTotal}</td></tr>`;
+      
+      html += "</tbody></table>";
+      return html;
+    }
+    
+    /***********************
+     * PROCESAMIENTO GENERAL
+     ***********************/
+    function processData(data) {
+      // Procesar datos para tablas 1 y 2 (General y Supervisores)
+      let { leaderArray, columnsToShow, globalTotals, calcTotal } = processGeneralData(data);
+      let tablaGeneralHTML = buildTablaGeneral(leaderArray, columnsToShow, calcTotal, globalTotals);
+      let tablaSupervisoresHTML = buildTablaSupervisores(leaderArray, columnsToShow, globalTotals);
+      
+      // Procesar datos para tabla 3 (Gestión del Back)
+      let { backData, globalBackTotal } = processBackData(data);
+      let tablaBackHTML = buildTablaBack(backData, globalBackTotal);
+      
+      // Asignar cada tabla a su contenedor correspondiente
+      document.getElementById("tableGeneral").innerHTML = tablaGeneralHTML;
+      document.getElementById("tableSupervisores").innerHTML = tablaSupervisoresHTML;
+      document.getElementById("tableBack").innerHTML = tablaBackHTML;
+    }
+    
+    /***********************
+     * MANEJO DE ARCHIVO Y EVENTOS
+     ***********************/
+    function handleFile(e) {
+      var files = e.target.files || e.dataTransfer.files;
+      if (files.length === 0) return;
+      var file = files[0];
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        var data = new Uint8Array(e.target.result);
+        var workbook = XLSX.read(data, {type: 'array'});
+        var firstSheetName = workbook.SheetNames[0];
+        var worksheet = workbook.Sheets[firstSheetName];
+        // Se saltean las primeras 2 filas (data desde la fila 3)
+        var jsonData = XLSX.utils.sheet_to_json(worksheet, {header: 1, range: 2});
+        processData(jsonData);
+      };
+      reader.readAsArrayBuffer(file);
+    }
+    
+    var dropZone = document.getElementById('dropZone');
+    dropZone.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      dropZone.style.backgroundColor = "#f0f0f0";
+    });
+    dropZone.addEventListener('dragleave', function(e) {
+      e.preventDefault();
+      dropZone.style.backgroundColor = "";
+    });
+    dropZone.addEventListener('drop', function(e) {
+      e.preventDefault();
+      dropZone.style.backgroundColor = "";
+      handleFile(e);
+    });
+    
+    document.getElementById('fileInput').addEventListener('change', handleFile);
+  </script>
+</body>
+</html>
