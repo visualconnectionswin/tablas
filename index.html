@@ -233,7 +233,7 @@
 
         html += `<tr class="bold">`;
         html += `<td class="leader-number">${index + 1}</td>`;
-        html += `<td>${leaderName}</td>`;
+        html += `<td style="background-color: #4a5f67; color: #fff;">${leaderName}</td>`;
 
         // Por cada estado, pintamos el fondo si > 0; si es 0 => fondo blanco
         columnsToShow.forEach(state => {
@@ -365,7 +365,7 @@
 
         html += `<tr class="bold">`;
         html += `<td class="leader-number">${index + 1}</td>`;
-        html += `<td>${leaderName}</td>`;
+        html += `<td style="background-color: #4a5f67; color: #fff;">${leaderName}</td>`;
 
         columnsToShow.forEach(state => {
           let count = leaderObj.data.stateCounts[state] || 0;
