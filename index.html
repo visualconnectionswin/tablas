@@ -107,22 +107,57 @@
         .join(' ');
     }
 
+    // Funciones auxiliares para conversión de colores
+    function hexToRgb(hex) {
+      hex = hex.replace(/^#/, '');
+      if(hex.length === 3) {
+        hex = hex.split('').map(function(h) {
+          return h + h;
+        }).join('');
+      }
+      let bigint = parseInt(hex, 16);
+      let r = (bigint >> 16) & 255;
+      let g = (bigint >> 8) & 255;
+      let b = bigint & 255;
+      return { r: r, g: g, b: b };
+    }
+    function rgbToHex(r, g, b) {
+      return "#" + [r, g, b].map(x => {
+        const hex = x.toString(16);
+        return hex.length === 1 ? "0" + hex : hex;
+      }).join('').toUpperCase();
+    }
+
+    // Función que devuelve un color degradado en función del valor (relativo a max)
+    // Partiendo de startColor (#FAE588) hasta endColor (color deseado para el estado)
+    function gradientColor(value, max, endColor) {
+      if (max === 0) return startColor;
+      let ratio = value / max;
+      let startRGB = hexToRgb(startColor);
+      let endRGB = hexToRgb(endColor);
+      let r = Math.round(startRGB.r + ratio * (endRGB.r - startRGB.r));
+      let g = Math.round(startRGB.g + ratio * (endRGB.g - startRGB.g));
+      let b = Math.round(startRGB.b + ratio * (endRGB.b - startRGB.b));
+      return rgbToHex(r, g, b);
+    }
+    
+    // Colores base para el degradado y el total global fijo
+    const startColor = "#FAE588"; // Color de inicio (amarillo)
+    const fixedTotalColor = "#4CAF50"; // Color fijo para TOTAL GENERAL en la fila final
+
     // Color fijo por cada estado (si el valor es > 0)
     function getColorByState(state) {
       switch (state) {
         case "CONFORME":        return "#4CAF50"; // verde pasto
-        case "AGENDADO":        return "#FAE588"; // amarillo pastel
-        case "VENTA OBSERVADA": return "#FAE588"; // amarillo pastel
+        case "AGENDADO":        return "#ebeaa5"; // Ejemplo: para AGENDADO el color deseado es verde (modifica según necesites)
+        case "VENTA OBSERVADA": return "#FAE588"; // amarillo pastel (ejemplo)
         case "P.GRABACIÓN":     return "#DDEBF7"; // azul pastel
         case "EN PROCESO":      return "#DDEBF7"; // azul pastel
         case "NO CONTESTA":     return "#F4B084"; // naranja pastel
-        case "DESAPROBADO":     return "#FFC7CE"; // rojo pastel
-        default:                return "";        // sin color
+        case "DESAPROBADO":     return "#FF7B8B"; // rojo pastel
+        default:                return "#ffffff"; // sin color
       }
     }
-
-    // Color fijo para la columna "TOTAL GENERAL" (si el valor es > 0)
-    const colorTotalGeneral = "#FAE588"; // amarillo sol
 
     /***************************************
      * CONFIGURACIÓN TABLA 1 Y 2 (GENERAL)
@@ -227,6 +262,32 @@
       html += "<th>TOTAL GENERAL</th>";
       html += "</tr></thead><tbody>";
 
+      // Se calcula el máximo total para líderes y vendedores
+      let maxLeaderTotal = 0;
+      leaderArray.forEach(leader => {
+        if (leader.total > maxLeaderTotal) maxLeaderTotal = leader.total;
+      });
+      let maxVendorTotal = 0;
+      leaderArray.forEach(leader => {
+        for (let vendor in leader.data.vendors) {
+          let vendorTotal = calcTotal(leader.data.vendors[vendor]);
+          if (vendorTotal > maxVendorTotal) maxVendorTotal = vendorTotal;
+        }
+      });
+      // Se calcula el máximo por cada columna (estado) en toda la tabla (líderes y vendedores)
+      let maxPerState = {};
+      columnsToShow.forEach(state => { maxPerState[state] = 0; });
+      leaderArray.forEach(leader => {
+        columnsToShow.forEach(state => {
+          let countLeader = leader.data.stateCounts[state] || 0;
+          if (countLeader > maxPerState[state]) maxPerState[state] = countLeader;
+          for (let vendor in leader.data.vendors) {
+            let countVendor = leader.data.vendors[vendor][state] || 0;
+            if (countVendor > maxPerState[state]) maxPerState[state] = countVendor;
+          }
+        });
+      });
+
       leaderArray.forEach((leaderObj, index) => {
         let leaderName = formatLeader(leaderObj.name);
         let leaderTotal = leaderObj.total;
@@ -235,42 +296,38 @@
         html += `<td class="leader-number">${index + 1}</td>`;
         html += `<td style="background-color: #4a5f67; color: #fff;">${leaderName}</td>`;
 
-        // Por cada estado, pintamos el fondo si > 0; si es 0 => fondo blanco
+        // Para cada columna (estado), se aplica degradado desde startColor hasta el color fijo de ese estado
         columnsToShow.forEach(state => {
           let count = leaderObj.data.stateCounts[state] || 0;
           let displayCount, bgColor;
-
           if (count === 0) {
             displayCount = "";
-            bgColor = "#ffffff"; // Celda en blanco y fondo blanco
+            bgColor = "#ffffff";
           } else {
             displayCount = count;
-            bgColor = getColorByState(state);
+            bgColor = gradientColor(count, maxPerState[state], getColorByState(state));
           }
-
-          html += `
-            <td style="background-color:${bgColor}; font-size:14px; font-weight:bold;">
+          html += `<td style="background-color:${bgColor}; font-size:14px; font-weight:bold;">
               ${displayCount}
             </td>`;
         });
 
-        // Columna "TOTAL GENERAL": si es 0 => blanco, si no => colorTotalGeneral
+        // Total general para el líder con degradado según maxLeaderTotal, usando getColorByState("CONFORME") si fuera el caso
         let displayLeaderTotal, totalBgColor;
         if (leaderTotal === 0) {
           displayLeaderTotal = "";
-          totalBgColor = "#ffffff"; 
+          totalBgColor = "#ffffff";
         } else {
           displayLeaderTotal = leaderTotal;
-          totalBgColor = colorTotalGeneral;
+          totalBgColor = gradientColor(leaderTotal, maxLeaderTotal, getColorByState("CONFORME"));
         }
 
-        html += `
-          <td style="background-color:${totalBgColor}; font-size:14px; font-weight:bold;">
+        html += `<td style="background-color:${totalBgColor}; font-size:16px; font-weight:bold;">
             ${displayLeaderTotal}
           </td>`;
         html += "</tr>";
 
-        // Filas de vendedores
+        // Filas de vendedores (dentro de cada líder)
         for (let vendor in leaderObj.data.vendors) {
           let vendorCounts = leaderObj.data.vendors[vendor];
           let vendorTotal = calcTotal(vendorCounts);
@@ -281,7 +338,7 @@
             vendorTotalBg = "#ffffff";
           } else {
             displayVendorTotal = vendorTotal;
-            vendorTotalBg = colorTotalGeneral;
+            vendorTotalBg = gradientColor(vendorTotal, maxVendorTotal, getColorByState("CONFORME"));
           }
 
           html += "<tr>";
@@ -296,7 +353,7 @@
               bgColor = "#ffffff";
             } else {
               displayCount = count;
-              bgColor = getColorByState(state);
+              bgColor = gradientColor(count, maxPerState[state], getColorByState(state));
             }
             html += `<td style="background-color:${bgColor};">${displayCount}</td>`;
           });
@@ -306,7 +363,7 @@
         }
       });
 
-      // Fila de Total general
+      // Fila de Total general: cada celda de columna se fija al color deseado (getColorByState)
       html += `<tr class="total-row">`;
       html += "<td></td><td>Total general</td>";
 
@@ -330,7 +387,7 @@
         overallBg = "#ffffff";
       } else {
         displayOverallTotal = overallTotal;
-        overallBg = colorTotalGeneral;
+        overallBg = fixedTotalColor;
       }
       html += `<td style="background-color:${overallBg};">${displayOverallTotal}</td>`;
       html += "</tr>";
@@ -350,6 +407,20 @@
       html += "<th>TOTAL GENERAL</th>";
       html += "</tr></thead><tbody>";
 
+      // Para esta tabla se consideran solo los líderes
+      let maxLeaderTotal = 0;
+      leaderArray.forEach(leader => {
+        if (leader.total > maxLeaderTotal) maxLeaderTotal = leader.total;
+      });
+      let maxPerState = {};
+      columnsToShow.forEach(state => { maxPerState[state] = 0; });
+      leaderArray.forEach(leader => {
+        columnsToShow.forEach(state => {
+          let count = leader.data.stateCounts[state] || 0;
+          if (count > maxPerState[state]) maxPerState[state] = count;
+        });
+      });
+
       leaderArray.forEach((leaderObj, index) => {
         let leaderName = formatLeader(leaderObj.name);
         let leaderTotal = leaderObj.total;
@@ -360,7 +431,7 @@
           leaderTotalBg = "#ffffff";
         } else {
           displayLeaderTotal = leaderTotal;
-          leaderTotalBg = colorTotalGeneral;
+          leaderTotalBg = gradientColor(leaderTotal, maxLeaderTotal, getColorByState("CONFORME"));
         }
 
         html += `<tr class="bold">`;
@@ -375,22 +446,20 @@
             bgColor = "#ffffff";
           } else {
             displayCount = count;
-            bgColor = getColorByState(state);
+            bgColor = gradientColor(count, maxPerState[state], getColorByState(state));
           }
-          html += `
-            <td style="background-color:${bgColor}; font-size:14px; font-weight:bold;">
+          html += `<td style="background-color:${bgColor}; font-size:14px; font-weight:bold;">
               ${displayCount}
             </td>`;
         });
 
-        html += `
-          <td style="background-color:${leaderTotalBg}; font-size:14px; font-weight:bold;">
+        html += `<td style="background-color:${leaderTotalBg}; font-size:14px; font-weight:bold;">
             ${displayLeaderTotal}
           </td>`;
         html += "</tr>";
       });
 
-      // Total general de todos los líderes
+      // Fila de Total general: cada celda se fija al color deseado para el estado
       html += `<tr class="total-row">`;
       html += "<td></td><td>Total general</td>";
 
@@ -414,7 +483,7 @@
         overallBg = "#ffffff";
       } else {
         displayOverallTotal = overallTotal;
-        overallBg = colorTotalGeneral;
+        overallBg = fixedTotalColor;
       }
       html += `<td style="background-color:${overallBg};">${displayOverallTotal}</td>`;
       html += "</tr>";
@@ -464,14 +533,13 @@
         let conformeCount = backData[back].conforme;
         let othersCount   = backData[back].others;
 
-        // Si es 0 => mostrar en blanco y fondo blanco
         let displayConforme, bgConforme;
         if (conformeCount === 0) {
           displayConforme = "";
           bgConforme = "#ffffff";
         } else {
           displayConforme = conformeCount;
-          bgConforme = ""; // sin color
+          bgConforme = "";
         }
 
         if (conformeCount > 0) {
@@ -486,14 +554,13 @@
         }
       }
 
-      // Fila "(En blanco)" si hay othersCount
       let displayBlancoCount, bgBlanco;
       if (blancoCount === 0) {
         displayBlancoCount = "";
         bgBlanco = "#ffffff";
       } else {
         displayBlancoCount = blancoCount;
-        bgBlanco = ""; 
+        bgBlanco = "";
       }
       if (blancoCount > 0) {
         html += `
@@ -503,7 +570,6 @@
           </tr>`;
       }
 
-      // Total general en la fila final
       let displayGlobalBackTotal, bgGlobalBack;
       if (globalBackTotal === 0) {
         displayGlobalBackTotal = "";
@@ -525,16 +591,13 @@
      * PROCESAMIENTO GENERAL
      ***********************/
     function processData(data) {
-      // Tablas 1 y 2 (General y Supervisores)
       let { leaderArray, columnsToShow, globalTotals, calcTotal } = processGeneralData(data);
       let tablaGeneralHTML = buildTablaGeneral(leaderArray, columnsToShow, calcTotal, globalTotals);
       let tablaSupervisoresHTML = buildTablaSupervisores(leaderArray, columnsToShow, globalTotals);
 
-      // Tabla 3 (Gestión del Back)
       let { backData, globalBackTotal } = processBackData(data);
       let tablaBackHTML = buildTablaBack(backData, globalBackTotal);
 
-      // Inyectar cada tabla en su contenedor
       document.getElementById("tableGeneral").innerHTML = tablaGeneralHTML;
       document.getElementById("tableSupervisores").innerHTML = tablaSupervisoresHTML;
       document.getElementById("tableBack").innerHTML = tablaBackHTML;
@@ -553,7 +616,6 @@
         var workbook = XLSX.read(data, {type: 'array'});
         var firstSheetName = workbook.SheetNames[0];
         var worksheet = workbook.Sheets[firstSheetName];
-        // Se saltean las primeras 2 filas (data desde la fila 3)
         var jsonData = XLSX.utils.sheet_to_json(worksheet, {header: 1, range: 2});
         processData(jsonData);
       };
