@@ -196,8 +196,10 @@
         if (row.length < 31) return;
         let vendor = row[0] ? row[0].toString().trim() : "";
         let supervisor = row[1] ? row[1].toString().trim() : "";
+        // Asignar "Sin Nombre" si la celda está vacía
+        vendor = vendor || "Sin Nombre";
+        supervisor = supervisor || "Sin Nombre";
         let stateValue = row[30] ? row[30].toString().trim().toUpperCase() : "";
-        if (!vendor || !supervisor) return;
         if (!validStates.includes(stateValue)) return;
 
         // Agrupar por supervisor
