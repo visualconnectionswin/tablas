@@ -149,12 +149,13 @@
     function getColorByState(state) {
       switch (state) {
         case "CONFORME":        return "#4CAF50"; // verde pasto
-        case "AGENDADO":        return "#ebeaa5"; // Ejemplo: para AGENDADO el color deseado es verde (modifica según necesites)
+        case "AGENDADO":        return "#FAE588"; // Ejemplo: para AGENDADO el color deseado es verde (modifica según necesites)
         case "VENTA OBSERVADA": return "#FAE588"; // amarillo pastel (ejemplo)
-        case "P.GRABACIÓN":     return "#DDEBF7"; // azul pastel
-        case "EN PROCESO":      return "#DDEBF7"; // azul pastel
-        case "NO CONTESTA":     return "#F4B084"; // naranja pastel
-        case "DESAPROBADO":     return "#FF7B8B"; // rojo pastel
+        case "P.GRABACIÓN":     return "#FAE588"; // azul pastel
+        case "EN PROCESO":      return "#FAE588"; // azul pastel
+        case "NO CONTESTA":     return "#FAE588"; // naranja pastel
+        case "DESAPROBADO":     return "#FAE588"; // rojo pastel
+		case "EN PROCESO":     return "#FAE588"; // rojo pastel
         default:                return "#ffffff"; // sin color
       }
     }
@@ -164,23 +165,25 @@
      ***************************************/
     const validStates = [
       "CONFORME",
+	  "AGENDADO",
+	  "VENTA OBSERVADA",
       "P.GRABACIÓN",
-      "AGENDADO",
-      "NO CONTESTA",
-      "VENTA OBSERVADA",
-      "DESAPROBADO",
-      "EN PROCESO"
+	  "EN PROCESO",      
+      "NO CONTESTA",      
+	  "DESAPROBADO",
+	  "EN PROCESO"	  
     ];
 
     // Se deja por si en el futuro se requiere puntuar
     const stateScore = {
       "CONFORME": 0,
+	  "AGENDADO": 0.4,
+	  "VENTA OBSERVADA": 0.8,
       "P.GRABACIÓN": 0.2,
-      "EN PROCESO": 0.2,
-      "AGENDADO": 0.4,
-      "NO CONTESTA": 0.6,
-      "VENTA OBSERVADA": 0.8,
-      "DESAPROBADO": 1.0
+      "EN PROCESO": 0.2,      
+      "NO CONTESTA": 0.6,      
+      "DESAPROBADO": 1.0,
+	  "EN PROCESO": 0.2
     };
 
     /***************************************
@@ -296,7 +299,7 @@
 
         html += `<tr class="bold">`;
         html += `<td class="leader-number">${index + 1}</td>`;
-        html += `<td style="background-color: #4a5f67; color: #fff;">${leaderName}</td>`;
+        html += `<td style="background-color: #cbd1d3; color: #000000;">${leaderName}</td>`;
 
         // Para cada columna (estado), se aplica degradado desde startColor hasta el color fijo de ese estado
         columnsToShow.forEach(state => {
@@ -438,7 +441,7 @@
 
         html += `<tr class="bold">`;
         html += `<td class="leader-number">${index + 1}</td>`;
-        html += `<td style="background-color: #4a5f67; color: #fff;">${leaderName}</td>`;
+        html += `<td style="background-color: #cbd1d3; color: #000000;">${leaderName}</td>`;
 
         columnsToShow.forEach(state => {
           let count = leaderObj.data.stateCounts[state] || 0;
