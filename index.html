@@ -259,243 +259,242 @@
     /***************************************
      * CONSTRUCCIÓN DE TABLA GENERAL (Tabla 1)
      ***************************************/
-    function buildTablaGeneral(leaderArray, columnsToShow, calcTotal, globalTotals) {
-      let html = "<table>";
-      html += "<thead><tr>";
-      html += "<th>N°</th><th>LÍDER</th>";
-      columnsToShow.forEach(state => { html += `<th>${state}</th>`; });
-      html += "<th>TOTAL GENERAL</th>";
-      html += "</tr></thead><tbody>";
+	function buildTablaGeneral(leaderArray, columnsToShow, calcTotal, globalTotals) {
+	  let html = "<table>";
+	  html += "<thead><tr>";
+	  html += "<th>LÍDER</th>";
+	  columnsToShow.forEach(state => { html += `<th>${state}</th>`; });
+	  html += "<th>TOTAL GENERAL</th>";
+	  html += "</tr></thead><tbody>";
 
-      // Se calcula el máximo total para líderes y vendedores
-      let maxLeaderTotal = 0;
-      leaderArray.forEach(leader => {
-        if (leader.total > maxLeaderTotal) maxLeaderTotal = leader.total;
-      });
-      let maxVendorTotal = 0;
-      leaderArray.forEach(leader => {
-        for (let vendor in leader.data.vendors) {
-          let vendorTotal = calcTotal(leader.data.vendors[vendor]);
-          if (vendorTotal > maxVendorTotal) maxVendorTotal = vendorTotal;
-        }
-      });
-      // Se calcula el máximo por cada columna (estado) en toda la tabla (líderes y vendedores)
-      let maxPerState = {};
-      columnsToShow.forEach(state => { maxPerState[state] = 0; });
-      leaderArray.forEach(leader => {
-        columnsToShow.forEach(state => {
-          let countLeader = leader.data.stateCounts[state] || 0;
-          if (countLeader > maxPerState[state]) maxPerState[state] = countLeader;
-          for (let vendor in leader.data.vendors) {
-            let countVendor = leader.data.vendors[vendor][state] || 0;
-            if (countVendor > maxPerState[state]) maxPerState[state] = countVendor;
-          }
-        });
-      });
+	  // Se calcula el máximo total para líderes y vendedores
+	  let maxLeaderTotal = 0;
+	  leaderArray.forEach(leader => {
+		if (leader.total > maxLeaderTotal) maxLeaderTotal = leader.total;
+	  });
+	  let maxVendorTotal = 0;
+	  leaderArray.forEach(leader => {
+		for (let vendor in leader.data.vendors) {
+		  let vendorTotal = calcTotal(leader.data.vendors[vendor]);
+		  if (vendorTotal > maxVendorTotal) maxVendorTotal = vendorTotal;
+		}
+	  });
+	  // Se calcula el máximo por cada columna (estado) en toda la tabla (líderes y vendedores)
+	  let maxPerState = {};
+	  columnsToShow.forEach(state => { maxPerState[state] = 0; });
+	  leaderArray.forEach(leader => {
+		columnsToShow.forEach(state => {
+		  let countLeader = leader.data.stateCounts[state] || 0;
+		  if (countLeader > maxPerState[state]) maxPerState[state] = countLeader;
+		  for (let vendor in leader.data.vendors) {
+			let countVendor = leader.data.vendors[vendor][state] || 0;
+			if (countVendor > maxPerState[state]) maxPerState[state] = countVendor;
+		  }
+		});
+	  });
 
-      leaderArray.forEach((leaderObj, index) => {
-        let leaderName = formatLeader(leaderObj.name);
-        let leaderTotal = leaderObj.total;
+	  leaderArray.forEach((leaderObj, index) => {
+		let leaderName = formatLeader(leaderObj.name);
+		let leaderTotal = leaderObj.total;
 
-        html += `<tr class="bold">`;
-        html += `<td class="leader-number">${index + 1}</td>`;
-        html += `<td style="background-color: #cbd1d3; color: #000000;">${leaderName}</td>`;
+		html += `<tr class="bold">`;
+		html += `<td style="background-color: #cbd1d3; color: #000000;">${leaderName}</td>`;
 
-        // Para cada columna (estado), se aplica degradado desde startColor hasta el color fijo de ese estado
-        columnsToShow.forEach(state => {
-          let count = leaderObj.data.stateCounts[state] || 0;
-          let displayCount, bgColor;
-          if (count === 0) {
-            displayCount = "";
-            bgColor = "#ffffff";
-          } else {
-            displayCount = count;
-            bgColor = gradientColor(count, maxPerState[state], getColorByState(state));
-          }
-          html += `<td style="background-color:${bgColor}; font-size:14px; font-weight:bold;">
-              ${displayCount}
-            </td>`;
-        });
+		// Para cada columna (estado), se aplica degradado desde startColor hasta el color fijo de ese estado
+		columnsToShow.forEach(state => {
+		  let count = leaderObj.data.stateCounts[state] || 0;
+		  let displayCount, bgColor;
+		  if (count === 0) {
+			displayCount = "";
+			bgColor = "#ffffff";
+		  } else {
+			displayCount = count;
+			bgColor = gradientColor(count, maxPerState[state], getColorByState(state));
+		  }
+		  html += `<td style="background-color:${bgColor}; font-size:14px; font-weight:bold;">
+			  ${displayCount}
+			</td>`;
+		});
 
-        // Total general para el líder con degradado según maxLeaderTotal, usando getColorByState("CONFORME") si fuera el caso
-        let displayLeaderTotal, totalBgColor;
-        if (leaderTotal === 0) {
-          displayLeaderTotal = "";
-          totalBgColor = "#ffffff";
-        } else {
-          displayLeaderTotal = leaderTotal;
-          totalBgColor = gradientColor(leaderTotal, maxLeaderTotal, getColorByState("CONFORME"));
-        }
+		// Total general para el líder con degradado según maxLeaderTotal, usando getColorByState("CONFORME") si fuera el caso
+		let displayLeaderTotal, totalBgColor;
+		if (leaderTotal === 0) {
+		  displayLeaderTotal = "";
+		  totalBgColor = "#ffffff";
+		} else {
+		  displayLeaderTotal = leaderTotal;
+		  totalBgColor = gradientColor(leaderTotal, maxLeaderTotal, getColorByState("CONFORME"));
+		}
 
-        html += `<td style="background-color:${totalBgColor}; font-size:16px; font-weight:bold;">
-            ${displayLeaderTotal}
-          </td>`;
-        html += "</tr>";
+		html += `<td style="background-color:${totalBgColor}; font-size:16px; font-weight:bold;">
+			  ${displayLeaderTotal}
+			</td>`;
+		html += "</tr>";
 
-        // Filas de vendedores (dentro de cada líder)
-        for (let vendor in leaderObj.data.vendors) {
-          let vendorCounts = leaderObj.data.vendors[vendor];
-          let vendorTotal = calcTotal(vendorCounts);
+		// Filas de vendedores (dentro de cada líder)
+		for (let vendor in leaderObj.data.vendors) {
+		  let vendorCounts = leaderObj.data.vendors[vendor];
+		  let vendorTotal = calcTotal(vendorCounts);
 
-          let displayVendorTotal, vendorTotalBg;
-          if (vendorTotal === 0) {
-            displayVendorTotal = "";
-            vendorTotalBg = "#ffffff";
-          } else {
-            displayVendorTotal = vendorTotal;
-            vendorTotalBg = gradientColor(vendorTotal, maxVendorTotal, getColorByState("CONFORME"));
-          }
+		  let displayVendorTotal, vendorTotalBg;
+		  if (vendorTotal === 0) {
+			displayVendorTotal = "";
+			vendorTotalBg = "#ffffff";
+		  } else {
+			displayVendorTotal = vendorTotal;
+			vendorTotalBg = gradientColor(vendorTotal, maxVendorTotal, getColorByState("CONFORME"));
+		  }
 
-          html += "<tr>";
-          html += "<td></td>";
-          html += `<td class="name-cell">${formatVendor(vendor)}</td>`;
+		  html += "<tr>";
+		  html += `<td class="name-cell">${formatVendor(vendor)}</td>`;
 
-          columnsToShow.forEach(state => {
-            let count = vendorCounts[state] || 0;
-            let displayCount, bgColor;
-            if (count === 0) {
-              displayCount = "";
-              bgColor = "#ffffff";
-            } else {
-              displayCount = count;
-              bgColor = gradientColor(count, maxPerState[state], getColorByState(state));
-            }
-            html += `<td style="background-color:${bgColor};">${displayCount}</td>`;
-          });
+		  columnsToShow.forEach(state => {
+			let count = vendorCounts[state] || 0;
+			let displayCount, bgColor;
+			if (count === 0) {
+			  displayCount = "";
+			  bgColor = "#ffffff";
+			} else {
+			  displayCount = count;
+			  bgColor = gradientColor(count, maxPerState[state], getColorByState(state));
+			}
+			html += `<td style="background-color:${bgColor};">${displayCount}</td>`;
+		  });
 
-          html += `<td style="background-color:${vendorTotalBg};">${displayVendorTotal}</td>`;
-          html += "</tr>";
-        }
-      });
+		  html += `<td style="background-color:${vendorTotalBg};">${displayVendorTotal}</td>`;
+		  html += "</tr>";
+		}
+	  });
 
-      // Fila de Total general: cada celda de columna se fija al color deseado (getColorByState)
-      html += `<tr class="total-row">`;
-      html += "<td></td><td>Total general</td>";
+	  // Fila de Total general: cada celda de columna se fija al color deseado (getColorByState)
+	  html += `<tr class="total-row">`;
+	  html += "<td>Total general</td>";
 
-      columnsToShow.forEach(state => {
-        let totalState = globalTotals[state];
-        let displayTotalState, bgColor;
-        if (totalState === 0) {
-          displayTotalState = "";
-          bgColor = "#ffffff";
-        } else {
-          displayTotalState = totalState;
-          bgColor = getColorByState(state);
-        }
-        html += `<td style="background-color:${bgColor};">${displayTotalState}</td>`;
-      });
+	  columnsToShow.forEach(state => {
+		let totalState = globalTotals[state];
+		let displayTotalState, bgColor;
+		if (totalState === 0) {
+		  displayTotalState = "";
+		  bgColor = "#ffffff";
+		} else {
+		  displayTotalState = totalState;
+		  bgColor = getColorByState(state);
+		}
+		html += `<td style="background-color:${bgColor};">${displayTotalState}</td>`;
+	  });
 
-      let overallTotal = columnsToShow.reduce((acc, state) => acc + globalTotals[state], 0);
-      let displayOverallTotal, overallBg;
-      if (overallTotal === 0) {
-        displayOverallTotal = "";
-        overallBg = "#ffffff";
-      } else {
-        displayOverallTotal = overallTotal;
-        overallBg = fixedTotalColor;
-      }
-      html += `<td style="background-color:${overallBg};">${displayOverallTotal}</td>`;
-      html += "</tr>";
+	  let overallTotal = columnsToShow.reduce((acc, state) => acc + globalTotals[state], 0);
+	  let displayOverallTotal, overallBg;
+	  if (overallTotal === 0) {
+		displayOverallTotal = "";
+		overallBg = "#ffffff";
+	  } else {
+		displayOverallTotal = overallTotal;
+		overallBg = fixedTotalColor;
+	  }
+	  html += `<td style="background-color:${overallBg};">${displayOverallTotal}</td>`;
+	  html += "</tr>";
 
-      html += "</tbody></table>";
-      return html;
-    }
+	  html += "</tbody></table>";
+	  return html;
+	}
+
 
     /*********************************************
      * CONSTRUCCIÓN DE TABLA DE SUPERVISORES (Tabla 2)
      *********************************************/
-    function buildTablaSupervisores(leaderArray, columnsToShow, globalTotals) {
-      let html = "<table>";
-      html += "<thead><tr>";
-      html += "<th>N°</th><th>LÍDER</th>";
-      columnsToShow.forEach(state => { html += `<th>${state}</th>`; });
-      html += "<th>TOTAL GENERAL</th>";
-      html += "</tr></thead><tbody>";
+	function buildTablaSupervisores(leaderArray, columnsToShow, globalTotals) {
+	  let html = "<table>";
+	  html += "<thead><tr>";
+	  html += "<th>LÍDER</th>";
+	  columnsToShow.forEach(state => { html += `<th>${state}</th>`; });
+	  html += "<th>TOTAL GENERAL</th>";
+	  html += "</tr></thead><tbody>";
 
-      // Para esta tabla se consideran solo los líderes
-      let maxLeaderTotal = 0;
-      leaderArray.forEach(leader => {
-        if (leader.total > maxLeaderTotal) maxLeaderTotal = leader.total;
-      });
-      let maxPerState = {};
-      columnsToShow.forEach(state => { maxPerState[state] = 0; });
-      leaderArray.forEach(leader => {
-        columnsToShow.forEach(state => {
-          let count = leader.data.stateCounts[state] || 0;
-          if (count > maxPerState[state]) maxPerState[state] = count;
-        });
-      });
+	  // Para esta tabla se consideran solo los líderes
+	  let maxLeaderTotal = 0;
+	  leaderArray.forEach(leader => {
+		if (leader.total > maxLeaderTotal) maxLeaderTotal = leader.total;
+	  });
+	  let maxPerState = {};
+	  columnsToShow.forEach(state => { maxPerState[state] = 0; });
+	  leaderArray.forEach(leader => {
+		columnsToShow.forEach(state => {
+		  let count = leader.data.stateCounts[state] || 0;
+		  if (count > maxPerState[state]) maxPerState[state] = count;
+		});
+	  });
 
-      leaderArray.forEach((leaderObj, index) => {
-        let leaderName = formatLeader(leaderObj.name);
-        let leaderTotal = leaderObj.total;
+	  leaderArray.forEach((leaderObj, index) => {
+		let leaderName = formatLeader(leaderObj.name);
+		let leaderTotal = leaderObj.total;
 
-        let displayLeaderTotal, leaderTotalBg;
-        if (leaderTotal === 0) {
-          displayLeaderTotal = "";
-          leaderTotalBg = "#ffffff";
-        } else {
-          displayLeaderTotal = leaderTotal;
-          leaderTotalBg = gradientColor(leaderTotal, maxLeaderTotal, getColorByState("CONFORME"));
-        }
+		let displayLeaderTotal, leaderTotalBg;
+		if (leaderTotal === 0) {
+		  displayLeaderTotal = "";
+		  leaderTotalBg = "#ffffff";
+		} else {
+		  displayLeaderTotal = leaderTotal;
+		  leaderTotalBg = gradientColor(leaderTotal, maxLeaderTotal, getColorByState("CONFORME"));
+		}
 
-        html += `<tr class="bold">`;
-        html += `<td class="leader-number">${index + 1}</td>`;
-        html += `<td style="background-color: #cbd1d3; color: #000000;">${leaderName}</td>`;
+		html += `<tr class="bold">`;
+		html += `<td style="background-color: #cbd1d3; color: #000000;">${leaderName}</td>`;
 
-        columnsToShow.forEach(state => {
-          let count = leaderObj.data.stateCounts[state] || 0;
-          let displayCount, bgColor;
-          if (count === 0) {
-            displayCount = "";
-            bgColor = "#ffffff";
-          } else {
-            displayCount = count;
-            bgColor = gradientColor(count, maxPerState[state], getColorByState(state));
-          }
-          html += `<td style="background-color:${bgColor}; font-size:14px; font-weight:bold;">
-              ${displayCount}
-            </td>`;
-        });
+		columnsToShow.forEach(state => {
+		  let count = leaderObj.data.stateCounts[state] || 0;
+		  let displayCount, bgColor;
+		  if (count === 0) {
+			displayCount = "";
+			bgColor = "#ffffff";
+		  } else {
+			displayCount = count;
+			bgColor = gradientColor(count, maxPerState[state], getColorByState(state));
+		  }
+		  html += `<td style="background-color:${bgColor}; font-size:14px; font-weight:bold;">
+			  ${displayCount}
+			</td>`;
+		});
 
-        html += `<td style="background-color:${leaderTotalBg}; font-size:14px; font-weight:bold;">
-            ${displayLeaderTotal}
-          </td>`;
-        html += "</tr>";
-      });
+		html += `<td style="background-color:${leaderTotalBg}; font-size:14px; font-weight:bold;">
+			  ${displayLeaderTotal}
+			</td>`;
+		html += "</tr>";
+	  });
 
-      // Fila de Total general: cada celda se fija al color deseado para el estado
-      html += `<tr class="total-row">`;
-      html += "<td></td><td>Total general</td>";
+	  // Fila de Total general: cada celda se fija al color deseado para el estado
+	  html += `<tr class="total-row">`;
+	  html += "<td>Total general</td>";
 
-      columnsToShow.forEach(state => {
-        let totalState = globalTotals[state];
-        let displayTotalState, bgColor;
-        if (totalState === 0) {
-          displayTotalState = "";
-          bgColor = "#ffffff";
-        } else {
-          displayTotalState = totalState;
-          bgColor = getColorByState(state);
-        }
-        html += `<td style="background-color:${bgColor};">${displayTotalState}</td>`;
-      });
+	  columnsToShow.forEach(state => {
+		let totalState = globalTotals[state];
+		let displayTotalState, bgColor;
+		if (totalState === 0) {
+		  displayTotalState = "";
+		  bgColor = "#ffffff";
+		} else {
+		  displayTotalState = totalState;
+		  bgColor = getColorByState(state);
+		}
+		html += `<td style="background-color:${bgColor};">${displayTotalState}</td>`;
+	  });
 
-      let overallTotal = columnsToShow.reduce((acc, state) => acc + globalTotals[state], 0);
-      let displayOverallTotal, overallBg;
-      if (overallTotal === 0) {
-        displayOverallTotal = "";
-        overallBg = "#ffffff";
-      } else {
-        displayOverallTotal = overallTotal;
-        overallBg = fixedTotalColor;
-      }
-      html += `<td style="background-color:${overallBg};">${displayOverallTotal}</td>`;
-      html += "</tr>";
+	  let overallTotal = columnsToShow.reduce((acc, state) => acc + globalTotals[state], 0);
+	  let displayOverallTotal, overallBg;
+	  if (overallTotal === 0) {
+		displayOverallTotal = "";
+		overallBg = "#ffffff";
+	  } else {
+		displayOverallTotal = overallTotal;
+		overallBg = fixedTotalColor;
+	  }
+	  html += `<td style="background-color:${overallBg};">${displayOverallTotal}</td>`;
+	  html += "</tr>";
 
-      html += "</tbody></table>";
-      return html;
-    }
+	  html += "</tbody></table>";
+	  return html;
+	}
+
 
     /*********************************************
      * PROCESAMIENTO DE DATOS PARA "GESTIÓN DEL BACK" (Tabla 3)
