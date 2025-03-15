@@ -97,7 +97,7 @@
      * FUNCIONES DE FORMATO
      **********************/
     function formatLeader(leader) {
-      // Se convierte el nombre a minúsculas y luego a "Title Case" (ej: "Ana María")
+      // Convertir a minúsculas y luego capitalizar la primera letra de cada palabra
       return leader.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
     }
     function formatVendor(vendor) {
@@ -333,7 +333,9 @@
         html += "</tr>";
 
         // Filas de vendedores (dentro de cada líder)
-        for (let vendor in leaderObj.data.vendors) {
+        let vendorKeys = Object.keys(leaderObj.data.vendors);
+        vendorKeys.sort((a, b) => calcTotal(leaderObj.data.vendors[b]) - calcTotal(leaderObj.data.vendors[a]));
+        vendorKeys.forEach(vendor => {
           let vendorCounts = leaderObj.data.vendors[vendor];
           let vendorTotal = calcTotal(vendorCounts);
 
@@ -364,7 +366,7 @@
 
           html += `<td style="background-color:${vendorTotalBg};">${displayVendorTotal}</td>`;
           html += "</tr>";
-        }
+        });
       });
 
       // Fila de Total general: cada celda de columna se fija al color deseado (getColorByState)
@@ -533,8 +535,12 @@
       html += "</tr></thead><tbody>";
 
       let blancoCount = 0;
+      
+      // Ordenar los keys de backData según la suma de conforme y others de forma descendente
+      let backKeys = Object.keys(backData);
+      backKeys.sort((a, b) => (backData[b].conforme + backData[b].others) - (backData[a].conforme + backData[a].others));
 
-      for (let back in backData) {
+      backKeys.forEach(back => {
         let conformeCount = backData[back].conforme;
         let othersCount   = backData[back].others;
 
@@ -550,14 +556,14 @@
         if (conformeCount > 0) {
           html += `
             <tr class="bold">
-              <td>${back.toUpperCase()}</td>
+              <td>${formatVendor(back)}</td>
               <td style="background-color:${bgConforme};">${displayConforme}</td>
             </tr>`;
         }
         if (othersCount > 0) {
           blancoCount += othersCount;
         }
-      }
+      });
 
       let displayBlancoCount, bgBlanco;
       if (blancoCount === 0) {
