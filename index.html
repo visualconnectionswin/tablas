@@ -330,7 +330,7 @@
         let supervisor = row[1] ? row[1].toString().trim() : "";
         vendor = vendor || "Sin Nombre";
         supervisor = supervisor || "Sin Nombre";
-        let stateValue = row[30] ? row[30].toString().trim().toUpperCase() : "";
+        let stateValue = row[30] ? row[30].toString().trim().toUpperCase().replace(/\s+/g, '') : "";
         if (!validStates.includes(stateValue)) return;
 
         if (!leaders[supervisor]) {
