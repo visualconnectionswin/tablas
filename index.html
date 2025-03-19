@@ -67,10 +67,10 @@
     }
     /* Fila de total general: fondo azul, texto negro, negrita y más grande */
     .total-row {
-      background-color: #4472C4; 
-      color: #000000;         
+      background-color: #4472C4;
+      color: #000000;
       font-weight: bold;
-      font-size: 16px;        
+      font-size: 16px;
     }
     .bold {
       font-weight: bold;
@@ -193,7 +193,7 @@
       <label for="fileInput">Selecciona o arrastra y suelta tu archivo aquí</label>
       <input type="file" id="fileInput" accept=".xlsx, .xls, .csv"/>
     </div>
-    
+
     <!-- Tabla General -->
     <h2>Tabla General</h2>
     <div class="table-section">
@@ -207,7 +207,7 @@
         </div>
       </div>
     </div>
-    
+
     <!-- Tabla de Supervisores -->
     <h2>Tabla de Supervisores</h2>
     <div class="table-section">
@@ -221,7 +221,7 @@
         </div>
       </div>
     </div>
-    
+
     <!-- Gestión del Back -->
     <h2>Gestión del Back</h2>
     <div class="table-section">
@@ -293,13 +293,13 @@
       let startRGB = hexToRgb(startColor);
       let endRGB = hexToRgb(endColor);
       let r = Math.round(startRGB.r + ratio * (endRGB.r - startRGB.r));
-      let g = Math.round(startRGB.g + ratio * (endRGB.g - startRGB.g));
+      let g = Math.round(startRGB.g + ratio * (endRGB.g - endRGB.g));
       let b = Math.round(startRGB.b + ratio * (endRGB.b - startRGB.b));
       return rgbToHex(r, g, b);
     }
-    
-    const startColor = "#FAE588"; 
-    const fixedTotalColor = "#4CAF50"; 
+
+    const startColor = "#FAE588";
+    const fixedTotalColor = "#4CAF50";
 
     function getColorByState(state) {
       switch (state) {
@@ -312,7 +312,7 @@
         case "DESAPROBADO":      return "#FAE588";
         case "PENDIENTE":      return "#FAE588";
         default:                 return "#ffffff";
-		
+
       }
     }
 
@@ -325,12 +325,17 @@
       validStates.forEach(state => { globalTotals[state] = 0; });
 
       data.forEach(row => {
-        if (row.length < 31) return;
+        // Corrected condition: Check if row is array and has at least 27 elements (index 26 accessible)
+        if (!Array.isArray(row) || row.length <= 26) {
+            console.log("Fila incompleta, saltando:", row); // Log skipped row for debugging
+            return;
+        }
         let vendor = row[0] ? row[0].toString().trim() : "";
         let supervisor = row[1] ? row[1].toString().trim() : "";
         vendor = vendor || "Sin Nombre";
         supervisor = supervisor || "Sin Nombre";
-        let stateValue = row[30] ? row[30].toString().trim().toUpperCase().replace(/\s+/g, '') : "";
+        let stateValue = row[26] ? row[26].toString().trim().toUpperCase() : "";
+		console.log("Valor del estado:", stateValue);
         if (!validStates.includes(stateValue)) return;
 
         if (!leaders[supervisor]) {
@@ -379,8 +384,8 @@
       "AGENDADO",
       "VENTA OBSERVADA",
       "PENDIENTE DE GRABACION",
-      "EN PROCESO",      
-      "NO CONTESTA",      
+      "EN PROCESO",
+      "NO CONTESTA",
       "DESAPROBADO",
       "PENDIENTE"
     ];
@@ -389,8 +394,8 @@
       "AGENDADO": 0.4,
       "VENTA OBSERVADA": 0.8,
       "PENDIENTE DE GRABACION": 0.2,
-      "EN PROCESO": 0.2,      
-      "NO CONTESTA": 0.6,      
+      "EN PROCESO": 0.2,
+      "NO CONTESTA": 0.6,
       "DESAPROBADO": 1.0,
       "PENDIENTE": 0.2
     };
@@ -611,21 +616,32 @@
       let backData = {};
       let globalBackTotal = 0;
       data.forEach(row => {
-        if (row.length < 29) return;
+        if (!Array.isArray(row) || row.length <= 26) {
+            console.log("Fila incompleta en Back Data, saltando:", row); // Log para depuración en Back Data
+            return;
+        }
         let stateBack = row[26] ? row[26].toString().trim().toUpperCase() : "";
         let backName  = row[28] ? row[28].toString().trim() : "";
-        if (!backName) return;
+
+        console.log("Procesando fila Back Data:", { stateBack, backName, row }); // **AÑADIDO LOG 1: Ver datos procesados**
+
+        if (!backName) {
+          console.log("Fila Back Data sin nombre de BACK, saltando:", row); // **AÑADIDO LOG 2: Filas sin backName**
+          return;
+        }
         if (!backData[backName]) {
           backData[backName] = { conforme: 0, others: 0 };
         }
         if (stateBack === "CONFORME") {
           backData[backName].conforme++;
           globalBackTotal++;
-        } else if (stateBack) {
+        } else if (stateBack !== "") {
           backData[backName].others++;
           globalBackTotal++;
         }
+        console.log("Contabilizado en Back Data:", { backName, stateBack, backData }); // **AÑADIDO LOG 3: Estado de conteo**
       });
+      console.log("Resultado final Back Data:", { backData, globalBackTotal }); // **AÑADIDO LOG 4: Resultado final función**
       return { backData, globalBackTotal };
     }
 
@@ -703,26 +719,26 @@
 	  columnsToShow.forEach(state => { html += `<th>${state}</th>`; });
 	  html += "<th>TOTAL GENERAL</th>";
 	  html += "</tr></thead><tbody>";
-	  
+
 	  // Se omite la fila del líder, dejando solo las filas de vendedores y la de total general
-	  
+
 	  // Filas de vendedores
 	  let vendorKeys = Object.keys(leaderObj.data.vendors);
 	  vendorKeys.sort((a, b) => calcTotal(leaderObj.data.vendors[b]) - calcTotal(leaderObj.data.vendors[a]));
-	  
+
 	  // Calcular totales por estado para todos los vendedores
 	  let totalsByState = {};
 	  columnsToShow.forEach(state => { totalsByState[state] = 0; });
-	  
+
 	  vendorKeys.forEach(vendor => {
 		let vendorCounts = leaderObj.data.vendors[vendor];
 		let vendorTotal = calcTotal(vendorCounts);
-		
+
 		// Actualizar totales por estado
 		columnsToShow.forEach(state => {
 		  totalsByState[state] += vendorCounts[state] || 0;
 		});
-		
+
 		let displayVendorTotal, vendorTotalBg;
 		if (vendorTotal === 0) {
 		  displayVendorTotal = "";
@@ -748,7 +764,7 @@
 		html += `<td style="background-color:${vendorTotalBg}; font-size:12px;">${displayVendorTotal}</td>`;
 		html += "</tr>";
 	  });
-	  
+
 	  // Fila de total general
 	  html += `<tr class="total-row">`;
 	  html += "<td>Total general</td>";
@@ -764,7 +780,7 @@
 		}
 		html += `<td style="background-color:${bgColor};">${displayTotalState}</td>`;
 	  });
-	  
+
 	  // Total general
 	  let grandTotal = columnsToShow.reduce((acc, state) => acc + totalsByState[state], 0);
 	  let displayGrandTotal, grandTotalBg;
@@ -777,7 +793,7 @@
 	  }
 	  html += `<td style="background-color:${grandTotalBg};">${displayGrandTotal}</td>`;
 	  html += "</tr>";
-	  
+
 	  html += "</tbody></table>";
 	  return html;
 	}
@@ -899,12 +915,12 @@
 	  // Buscar el objeto del líder en globalData
 	  const leaderObj = window.globalData.leaderArray.find(l => l.name === leaderName);
 	  if (!leaderObj) return;
-	  
+
 	  // Construir la tabla compacta para el popup sin la fila de LÍDER
 	  const popupHTML = buildPopupTable(leaderObj, window.globalData.columnsToShow, window.globalData.calcTotal, window.globalData.maxPerState, window.globalData.maxLeaderTotal, window.globalData.maxVendorTotal);
 	  document.getElementById('popupTable').innerHTML = popupHTML;
 	  document.getElementById('popupContainer').style.display = 'flex';
-	  
+
 	  // Configurar el popup para que tome toda la pantalla
 	  const popupContent = document.getElementById('popupContent');
 	  popupContent.style.position = 'fixed';
@@ -923,8 +939,8 @@
 	document.addEventListener('click', function(event) {
 	  const popup = document.getElementById('popupContent');
 	  const popupContainer = document.getElementById('popupContainer');
-	  if (popupContainer.style.display === 'flex' && 
-		  !popup.contains(event.target) && 
+	  if (popupContainer.style.display === 'flex' &&
+		  !popup.contains(event.target) &&
 		  !event.target.closest('.leader-row')) {
 		hidePopup();
 	  }
@@ -943,7 +959,7 @@
 		var workbook = XLSX.read(data, {type: 'array'});
 		var firstSheetName = workbook.SheetNames[0];
 		var worksheet = workbook.Sheets[firstSheetName];
-		var jsonData = XLSX.utils.sheet_to_json(worksheet, {header: 1, range: 2});
+		var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, range: 2 });
 		processData(jsonData);
 	  };
 	  reader.readAsArrayBuffer(file);
@@ -971,7 +987,6 @@
 	});
 
 	document.getElementById('fileInput').addEventListener('change', handleFile);
-
 
 
   </script>
